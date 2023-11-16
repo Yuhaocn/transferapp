@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Transaction Simulator</title>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+</head>
+<body>
+
+<h1>User Transaction Simulator</h1>
+
+<!-- Login Form -->
+<div>
+    <h2>Login</h2>
+    <label for="username">Username:</label>
+    <input type="text" id="username" required>
+    <button onclick="login()">Login</button>
+    <div id="loginError" style="color: red;"></div>
+</div>
+<div id="accountAmount">Loading...</div>
+
+<!-- Transaction History -->
+<div>
+    <h2>Transaction History</h2>
+    <ul id="transactionList"></ul>
+    <button onclick="fetchHistory()">Fetch History</button>
+    <div id="historyError" style="color: red;"></div>
+</div>
+
+<!-- Transaction Form -->
+<div>
+    <h2>Perform Transaction</h2>
+    <label for="receiver">Receiver:</label>
+    <input type="text" id="receiver" required>
+    <label for="amount">Amount:</label>
+    <input type="number" id="amount" required>
+    <button onclick="performTransaction()">Send Money</button>
+    <div id="transactionError" style="color: red;"></div>
+</div>
+
+<script>
+    const apiUrl = 'http://localhost:8080/api';
+
+    let loggedInUserId;  // Variable to store the logged-in user ID
+
+function login() {
+    const username = $('#username').val();
+
+    $.get(`${apiUrl}/users/${username}`, (user) => {
+        console.log('User details:', user);
+        loadTransactionHistory(user.id);
+        loggedInUserId = user.id;  // Store the logged-in user ID
+        $('#loginError').text('');  // Clear login error
+
+        // After login is successful, update user amount
+        updateUserAmount(loggedInUserId);
+    }).fail((error) => {
+        console.error('Login failed:', error);
+        $('#loginError').text('User not found. Please enter a valid username.');
+    });
+}
+
+function updateUserAmount(userId) {
+    $.get(`${apiUrl}/users/${userId}/amount`, (amount) => {
+        $('#accountAmount').text(`Account Amount: ${amount}`);
+    }).fail((error) => {
+        console.error('Failed to get user amount:', error);
+    });
+}
+
+
+function updateUserAmount(userId) {
+    $.get(`${apiUrl}/users/amount/${userId}`, (amount) => {
+        $('#accountAmount').text(`Account Amount: ${amount}`);
+    }).fail((error) => {
+        console.error('Failed to get user amount:', error);
+    });
+}
+
+
+    function loadTransactionHistory(userId) {
+        $.get(`${apiUrl}/transactions/${userId}`, (transactions) => {
+            console.log('Inside AJAX success callback');
+            const transactionList = $('#transactionList');
+            transactionList.empty();
+
+            if (transactions && transactions.length > 0) {
+                transactions.forEach((transaction) => {
+                    const listItem = `<li>${transaction.timestamp} - ${transaction.amount} to/from ${transaction.senderId === userId ? 'Sender' : 'Receiver'}</li>`;
+                    transactionList.append(listItem);
+                });
+            } else {
+                console.log('No transactions found.');
+            }
+        }).fail((error) => {
+            console.log('Inside AJAX failure callback');
+            console.error('Failed to load transaction history:', error);
+        });
+    }
+
+    function performTransaction() {
+    const receiver = $('#receiver').val();
+    const amount = $('#amount').val();
+    const username = $('#username').val();
+
+    console.log('Performing transaction for user:', username);
+    console.log('Receiver:', receiver);
+    console.log('Amount:', amount);
+
+    $.get(`${apiUrl}/users/${username}`, (sender) => {
+        console.log('Sender details:', sender);
+        const transactionData = {
+            senderUsername: sender.username,
+            receiverUsername: receiver,
+            amount: amount
+        };
+
+        $.ajax({
+            type: 'POST',
+            url: `${apiUrl}/transactions`,
+            contentType: 'application/json',
+            dataType: 'json',
+            data: JSON.stringify(transactionData),
+            success: (response) => {
+                console.log('Transaction successful:', response);
+                loadTransactionHistory(sender.id);
+                $('#transactionError').text('');  // Clear transaction error
+            },
+            error: (error) => {
+                console.error('Transaction failed:', error);
+                
+            }
+        });
+    }).fail((error) => {
+        console.error('Failed to get sender details:', error);
+    });
+}
+
+    function fetchHistory() {
+        const username = $('#username').val();
+        console.log('Fetching history for user:', username);
+        $.get(`${apiUrl}/users/${username}`, (user) => {
+            console.log('User details:', user);
+            loadTransactionHistory(user.id);
+            $('#historyError').text('');  // Clear history error
+        }).fail((error) => {
+            console.error('Failed to fetch history:', error);
+            $('#historyError').text('Failed to fetch transaction history. Please try again.');
+        });
+    }
+</script>
+
+</body>
+</html>
